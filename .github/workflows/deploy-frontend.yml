@@ -1,0 +1,25 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "airbyte-webapp/**"
+
+jobs:
+  deploy:
+    name: SSH & Deploy to data-poc
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 91.98.84.93
+          username: root
+          key: ${{ secrets.DATA_POC_SSH_KEY }}
+          script: |
+            cd /home/opensource-tools/airbyte-platform
+            git pull origin main
+            bash scripts/deploy-front.sh

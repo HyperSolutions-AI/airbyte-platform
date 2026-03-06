@@ -3,7 +3,7 @@ import { FormattedMessage } from "react-intl";
 
 import { FlexContainer } from "components/ui/Flex";
 import { Heading } from "components/ui/Heading";
-import AirbyteLogo from "components/ui/illustrations/airbyte-logo.svg?react";
+// import AirbyteLogo from "components/ui/illustrations/airbyte-logo.svg?react";
 
 import styles from "./AirbyteTitle.module.scss";
 
@@ -11,7 +11,8 @@ export const AirbyteTitle = ({ title }: { title: ReactNode }) => {
   return (
     <FlexContainer direction="column" gap="2xl">
       <FlexContainer direction="column" gap="md" alignItems="center" className={styles.titleContainer}>
-        <AirbyteLogo />
+        {/* <AirbyteLogo /> */}
+        <img src="public/logo.png" width={600} height={400} alt="HyperFlow Logo" className="w-700" />
         <Heading as="h1" size="lg" className={styles.title}>
           <FormattedMessage id="connectorBuilder.title" />
         </Heading>

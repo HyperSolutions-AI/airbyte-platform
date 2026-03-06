@@ -1,5 +1,4 @@
 import { FlexContainer } from "components/ui/Flex";
-import AirbyteLogo from "components/ui/illustrations/airbyte-logo.svg?react";
 
 import { SimpleAuthLoginForm } from "area/auth/components/SimpleAuthLoginForm";
 
@@ -11,7 +10,7 @@ export const LoginPage = () => {
       <div className={styles.loginPage__form}>
         <FlexContainer direction="column" gap="2xl">
           <FlexContainer justifyContent="center">
-            <AirbyteLogo className={styles.loginPage__logo} />
+            <img src="public/logo.png" width={600} height={400} alt="HyperFlow Logo" className="w-700" />
           </FlexContainer>
           <SimpleAuthLoginForm />
         </FlexContainer>

@@ -133,6 +133,22 @@ export default defineConfig(() => {
       headers: {
         "Content-Security-Policy": "script-src * 'unsafe-inline'; worker-src 'self' blob:;",
       },
+      proxy: process.env.PROXY_TARGET || process.env.REACT_APP_API_URL
+        ? {
+            "/api": {
+              target: process.env.PROXY_TARGET || process.env.REACT_APP_API_URL,
+              changeOrigin: true,
+              secure: false,
+              cookieDomainRewrite: "localhost",
+            },
+            "/auth": {
+              target: process.env.PROXY_TARGET || process.env.REACT_APP_API_URL,
+              changeOrigin: true,
+              secure: false,
+              cookieDomainRewrite: "localhost",
+            },
+          }
+        : undefined,
     },
     css: {
       devSourcemap: true,

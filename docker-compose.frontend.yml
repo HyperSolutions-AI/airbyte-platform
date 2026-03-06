@@ -1,0 +1,12 @@
+services:
+  airbyte-webapp:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        REACT_APP_API_URL: https://airbyte.poc.hyperlakehouse.com
+        REACT_APP_KEYCLOAK_BASE_URL: https://airbyte.poc.hyperlakehouse.com
+    image: hypersolutions/airbyte-webapp:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped

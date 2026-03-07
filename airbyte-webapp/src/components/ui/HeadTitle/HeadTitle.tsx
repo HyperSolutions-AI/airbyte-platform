@@ -7,7 +7,7 @@ import { useGetWorkspace } from "core/api";
 import { useAuthService } from "core/services/auth";
 import { useLocalStorage } from "core/utils/useLocalStorage";
 
-const AIRBYTE = "Airbyte";
+const AIRBYTE = "HyperFlow";
 const SEPARATOR = "|";
 
 interface FormattedHeadTitle {

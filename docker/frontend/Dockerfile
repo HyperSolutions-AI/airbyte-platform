@@ -9,10 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /v
 
 WORKDIR /app
 
-# Copy connector builder resources (load-declarative-schema.sh reads ../airbyte-connector-builder-resources/CDK_VERSION)
+# Copy OpenAPI specs that orval reads (paths relative to airbyte-webapp/):
+#   ../airbyte-api/server-api/src/main/openapi/config.yaml
+#   ../airbyte-api/problems-api/src/main/openapi/api-problems.yaml
+COPY airbyte-api/server-api/src/main/openapi/ ./airbyte-api/server-api/src/main/openapi/
+COPY airbyte-api/problems-api/src/main/openapi/ ./airbyte-api/problems-api/src/main/openapi/
+
+# Copy CDK version file (load-declarative-schema.sh reads ../airbyte-connector-builder-resources/CDK_VERSION)
 COPY airbyte-connector-builder-resources/ ./airbyte-connector-builder-resources/
 
-# Copy webapp source into a subdir so relative paths (../) resolve correctly
+# Copy webapp source
 COPY airbyte-webapp/ ./airbyte-webapp/
 
 WORKDIR /app/airbyte-webapp

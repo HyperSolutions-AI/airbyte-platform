@@ -10,7 +10,7 @@ export const LoginPage = () => {
       <div className={styles.loginPage__form}>
         <FlexContainer direction="column" gap="2xl">
           <FlexContainer justifyContent="center">
-            <img src="public/logo.png" width={601} height={400} alt="HyperFlow Logo" className="w-700" />
+            <img src="/logo.png" width={601} height={400} alt="HyperFlow Logo" className="w-700" />
           </FlexContainer>
           <SimpleAuthLoginForm />
         </FlexContainer>

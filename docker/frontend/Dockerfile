@@ -5,7 +5,7 @@ FROM node:20.19.0 AS builder
 RUN npm install -g pnpm@8.6.12
 
 # Install jq (needed by load-declarative-schema.sh to parse PyPI response)
-RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends jq xxd && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -17,6 +17,10 @@ COPY airbyte-api/problems-api/src/main/openapi/ ./airbyte-api/problems-api/src/m
 
 # Copy CDK version file (load-declarative-schema.sh reads ../airbyte-connector-builder-resources/CDK_VERSION)
 COPY airbyte-connector-builder-resources/ ./airbyte-connector-builder-resources/
+
+# Copy intents.yaml (generateIntents Vite plugin reads ../../../airbyte-commons-auth/src/main/resources/intents.yaml
+# relative to airbyte-webapp/packages/vite-plugins/)
+COPY airbyte-commons-auth/src/main/resources/intents.yaml ./airbyte-commons-auth/src/main/resources/intents.yaml
 
 # Copy webapp source
 COPY airbyte-webapp/ ./airbyte-webapp/

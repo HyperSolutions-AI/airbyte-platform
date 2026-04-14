@@ -1,0 +1,48 @@
+name: Build and Publish to Harbor
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: registry.hyperlakehouse.com
+  PROJECT: hyperlake-dev
+  REPO: hyperflow-ui
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract tag name
+        id: meta
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend/Dockerfile
+          push: true
+          build-args: |
+            REACT_APP_API_URL=https://airbyte-ui.poc.hyperlakehouse.com
+            REACT_APP_KEYCLOAK_BASE_URL=https://airbyte-ui.poc.hyperlakehouse.com
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.REPO }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

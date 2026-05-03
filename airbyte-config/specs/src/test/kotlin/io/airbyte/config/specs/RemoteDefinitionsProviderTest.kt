@@ -523,6 +523,34 @@ internal class RemoteDefinitionsProviderTest {
     )
   }
 
+  @Test
+  fun testCustomGithubDocsBaseUrlIsUsed() {
+    // enqueue a response for the docs request on the mock web server (which acts as the internal mirror)
+    webServer!!.enqueue(makeResponse(200, "# Custom internal docs content"))
+
+    val configWithCustomGithubUrl =
+      AirbyteConnectorRegistryConfig(
+        remote =
+          AirbyteConnectorRegistryConfig.AirbyteConnectorRegistryRemoteConfig(
+            baseUrl = baseUrl,
+            githubDocsBaseUrl = baseUrl, // point github docs at our mock server
+          ),
+      )
+    val provider = RemoteDefinitionsProvider(airbyteConfig, configWithCustomGithubUrl)
+
+    val result = provider.getLiveConnectorDocumentation("https://docs.airbyte.com/integrations/sources/postgres")
+
+    Assertions.assertTrue(result.isPresent, "Expected docs to be returned from custom URL")
+    Assertions.assertEquals("# Custom internal docs content", result.get())
+
+    // verify the request went to our mock server (not github.com)
+    val recordedRequest = webServer!!.takeRequest()
+    Assertions.assertTrue(
+      recordedRequest.path!!.endsWith("sources/postgres.md"),
+      "Expected docs path but got: ${recordedRequest.path}",
+    )
+  }
+
   companion object {
     private val AIRBYTE_EDITION = AirbyteEdition.COMMUNITY
     private const val CONNECTOR_REPOSITORY = "airbyte/source-stripe"

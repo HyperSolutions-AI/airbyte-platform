@@ -36,6 +36,12 @@ airbyte:
     remote:
       base-url: ${CONNECTOR_REGISTRY_BASE_URL:}
       timeout-ms: ${CONNECTOR_REGISTRY_TIMEOUT_MS:30000}
+      github-docs-base-url: ${GITHUB_DOCS_BASE_URL:}
+    docker-hub:
+      base-url: ${DOCKER_HUB_BASE_URL:https://hub.docker.com}
+  platform-compatibility:
+    remote:
+      base-url: ${CONNECTOR_REGISTRY_BASE_URL:}
   license-key: ${AIRBYTE_LICENSE_KEY:}
   cron:
     update-definitions:

@@ -700,22 +700,23 @@ internal class PayloadKubeInputMapperTest {
       assertEquals("custom-image-registry/test-img", it.destinationImage)
     }
 
-    // Now test that custom connectors which define a fully-qualified image (i.e. image includes registry domain)
-    // will not get the custom registry prefix.
+    // Images that already carry a registry hostname (e.g. ghcr.io/org/img) must have their
+    // hostname replaced by the configured internal registry so that air-gapped deployments
+    // never reach an external registry.
     testConfig.dockerImage = "my.registry.com/test-img"
 
     mapper.toKubeInput(workloadId, specInput, emptyMap()).also {
-      assertEquals("my.registry.com/test-img", it.kubePodInfo.mainContainerInfo?.image)
+      assertEquals("custom-image-registry/test-img", it.kubePodInfo.mainContainerInfo?.image)
     }
     mapper.toKubeInput(workloadId, checkInput, emptyMap()).also {
-      assertEquals("my.registry.com/test-img", it.kubePodInfo.mainContainerInfo?.image)
+      assertEquals("custom-image-registry/test-img", it.kubePodInfo.mainContainerInfo?.image)
     }
     mapper.toKubeInput(workloadId, discoverInput, emptyMap()).also {
-      assertEquals("my.registry.com/test-img", it.kubePodInfo.mainContainerInfo?.image)
+      assertEquals("custom-image-registry/test-img", it.kubePodInfo.mainContainerInfo?.image)
     }
     mapper.toKubeInput(workloadId, syncPayload, emptyMap()).also {
-      assertEquals("my.registry.com/test-img", it.sourceImage)
-      assertEquals("my.registry.com/test-img", it.destinationImage)
+      assertEquals("custom-image-registry/test-img", it.sourceImage)
+      assertEquals("custom-image-registry/test-img", it.destinationImage)
     }
   }
 

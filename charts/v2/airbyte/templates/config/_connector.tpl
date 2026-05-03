@@ -42,11 +42,49 @@ Renders the connector.enterpriseSourceStubsUrl environment variable
 {{- end }}
 
 {{/*
+Renders the global.connectorRegistry.dockerHubBaseUrl value
+*/}}
+{{- define "airbyte.connector.dockerHubBaseUrl" }}
+    {{- .Values.global.connectorRegistry.dockerHubBaseUrl | default "https://hub.docker.com" }}
+{{- end }}
+
+{{/*
+Renders the connector.dockerHubBaseUrl environment variable
+*/}}
+{{- define "airbyte.connector.dockerHubBaseUrl.env" }}
+- name: DOCKER_HUB_BASE_URL
+  valueFrom:
+    configMapKeyRef:
+      name: {{ .Release.Name }}-airbyte-env
+      key: DOCKER_HUB_BASE_URL
+{{- end }}
+
+{{/*
+Renders the global.connectorRegistry.githubDocsBaseUrl value
+*/}}
+{{- define "airbyte.connector.githubDocsBaseUrl" }}
+    {{- .Values.global.connectorRegistry.githubDocsBaseUrl | default "" }}
+{{- end }}
+
+{{/*
+Renders the connector.githubDocsBaseUrl environment variable
+*/}}
+{{- define "airbyte.connector.githubDocsBaseUrl.env" }}
+- name: GITHUB_DOCS_BASE_URL
+  valueFrom:
+    configMapKeyRef:
+      name: {{ .Release.Name }}-airbyte-env
+      key: GITHUB_DOCS_BASE_URL
+{{- end }}
+
+{{/*
 Renders the set of all connector environment variables
 */}}
 {{- define "airbyte.connector.envs" }}
 {{- include "airbyte.connector.seedProvider.env" . }}
 {{- include "airbyte.connector.enterpriseSourceStubsUrl.env" . }}
+{{- include "airbyte.connector.dockerHubBaseUrl.env" . }}
+{{- include "airbyte.connector.githubDocsBaseUrl.env" . }}
 {{- end }}
 
 {{/*
@@ -55,4 +93,6 @@ Renders the set of all connector config map variables
 {{- define "airbyte.connector.configVars" }}
 CONNECTOR_REGISTRY_SEED_PROVIDER: {{ include "airbyte.connector.seedProvider" . | quote }}
 ENTERPRISE_SOURCE_STUBS_URL: {{ include "airbyte.connector.enterpriseSourceStubsUrl" . | quote }}
+DOCKER_HUB_BASE_URL: {{ include "airbyte.connector.dockerHubBaseUrl" . | quote }}
+GITHUB_DOCS_BASE_URL: {{ include "airbyte.connector.githubDocsBaseUrl" . | quote }}
 {{- end }}

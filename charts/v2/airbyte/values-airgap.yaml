@@ -1,0 +1,130 @@
+# =============================================================================
+# values-airgap.yaml — overlay for fully air-gapped deployments
+#
+# Apply on top of values.yaml:
+#   helm upgrade --install airbyte . \
+#     -f values.yaml \
+#     -f values-airgap.yaml \
+#     --set global.image.registry=harbor.moi.internal
+# =============================================================================
+
+global:
+  # Point ALL platform images (server, worker, webapp, etc.) to the internal registry.
+  # The Helm chart prepends this to every airbyte/* image repository.
+  image:
+    registry: "harbor.moi.internal"   # ← replace with your registry
+    pullPolicy: IfNotPresent
+
+  # Pull secret for the internal registry (create with kubectl before deploying)
+  # kubectl create secret docker-registry internal-registry-secret \
+  #   --docker-server=harbor.moi.internal \
+  #   --docker-username=robot$airbyte \
+  #   --docker-password=<token>
+  imagePullSecrets:
+    - name: internal-registry-secret
+
+  connectorRegistry:
+    # Read connector list from the bundled local_oss_registry.json.
+    # No call to connectors.airbyte.com is made at startup.
+    seedProvider: local
+
+    # Enterprise connector stubs (Marketplace tab).
+    # Point to an internal static file server hosting the stubs JSON,
+    # or leave empty to disable the Marketplace tab.
+    enterpriseSourceStubsUrl: ""
+
+    # Docker Hub API mirror — used by the cron to refresh declarative manifest versions.
+    # Point to your internal Harbor instance (it implements the Docker Hub v2 API).
+    dockerHubBaseUrl: "https://harbor.moi.internal"   # ← replace
+
+    # GitHub docs mirror — used when a user views connector documentation.
+    # Point to an internal static file server mirroring the airbytehq/airbyte docs.
+    # Leave empty to disable live doc fetching (falls back to bundled docs).
+    githubDocsBaseUrl: ""
+
+  jobs:
+    kube:
+      # Critical: every connector image gets this prefix prepended at pod creation.
+      # The withImageRegistry() function in PayloadKubeInputMapper strips any existing
+      # registry host (e.g. ghcr.io) and replaces it with this value.
+      # Images in local_oss_registry.json are stored without a registry host
+      # (e.g. "airbyte/source-postgres"), so the full pull path becomes:
+      #   harbor.moi.internal/airbyte/source-postgres:3.7.2
+      connectorImageRegistry: "harbor.moi.internal"   # ← replace
+
+      # Never pull from the internet — use only what is already loaded in the node.
+      mainContainerImagePullPolicy: IfNotPresent
+      mainContainerImagePullSecret: "internal-registry-secret"
+
+# ---------------------------------------------------------------------------
+# Platform-component image overrides
+# ---------------------------------------------------------------------------
+# Each component inherits global.image.registry automatically via the Helm
+# chart templates.  You only need to set these if a component uses a
+# non-standard tag.
+
+server:
+  image:
+    pullPolicy: IfNotPresent
+
+worker:
+  image:
+    pullPolicy: IfNotPresent
+
+workloadLauncher:
+  image:
+    pullPolicy: IfNotPresent
+  connector:
+    image:
+      registry: "harbor.moi.internal"   # ← replace
+
+webapp:
+  image:
+    pullPolicy: IfNotPresent
+
+bootloader:
+  image:
+    pullPolicy: IfNotPresent
+
+# ---------------------------------------------------------------------------
+# Infrastructure images — temporal, minio, postgres, keycloak
+# ---------------------------------------------------------------------------
+temporal:
+  image:
+    repository: temporalio/auto-setup
+    tag: "1.27.2"
+    pullPolicy: IfNotPresent
+
+  ui:
+    image:
+      repository: temporalio/ui
+      tag: "2.30.1"
+      pullPolicy: IfNotPresent
+
+minio:
+  image:
+    repository: minio/minio
+    tag: RELEASE.2023-11-20T22-40-07Z
+    pullPolicy: IfNotPresent
+
+postgresql:
+  image:
+    tag: "13-alpine"
+    pullPolicy: IfNotPresent
+
+keycloak:
+  image:
+    pullPolicy: IfNotPresent
+
+# ---------------------------------------------------------------------------
+# Disable all external service integrations
+# ---------------------------------------------------------------------------
+# These are disabled by omitting their API keys / enabling logging-only mode.
+# Verify none of these env vars are set in your cluster secrets either.
+#
+#   SEGMENT_WRITE_KEY        — unset → analytics go to logs only
+#   WEBAPP_SEGMENT_TOKEN     — unset → no browser analytics
+#   LAUNCHDARKLY_KEY         — unset → feature flags read from flags.yml
+#   JOB_ERROR_REPORTING_SENTRY_DSN  — unset → errors logged locally
+#   CUSTOMERIO_API_KEY       — unset → no email notifications
+#   STIGG_API_KEY            — unset → entitlements use license key only

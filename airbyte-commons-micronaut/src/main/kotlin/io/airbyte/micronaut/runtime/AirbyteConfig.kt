@@ -459,17 +459,24 @@ data class AirbyteConnectorConfig(
 data class AirbyteConnectorRegistryConfig(
   val enterprise: AirbyteConnectorRegistryEnterpriseConfig = AirbyteConnectorRegistryEnterpriseConfig(),
   val remote: AirbyteConnectorRegistryRemoteConfig = AirbyteConnectorRegistryRemoteConfig(),
+  val dockerHub: AirbyteConnectorRegistryDockerHubConfig = AirbyteConnectorRegistryDockerHubConfig(),
   val seedProvider: String = DEFAULT_CONNECTOR_REGISTRY_SEED_PROVIDER,
 ) {
   @ConfigurationProperties("remote")
   data class AirbyteConnectorRegistryRemoteConfig(
     val baseUrl: String = "",
     val timeoutMs: Long = DEFAULT_CONNECTOR_REGISTRY_REMOTE_TIMEOUT_MS,
+    val githubDocsBaseUrl: String = "",
   )
 
   @ConfigurationProperties("enterprise")
   data class AirbyteConnectorRegistryEnterpriseConfig(
     val enterpriseStubsUrl: String = "",
+  )
+
+  @ConfigurationProperties("docker-hub")
+  data class AirbyteConnectorRegistryDockerHubConfig(
+    val baseUrl: String = "https://hub.docker.com",
   )
 }
 
@@ -770,6 +777,7 @@ data class AirbytePlatformCompatibilityConfig(
   @ConfigurationProperties("remote")
   data class AirbytePlatformCompatibilityRemoteConfig(
     val timeoutMs: Long = DEFAULT_PLATFORM_COMPATIBILITY_REMOTE_TIMEOUT_MS,
+    val baseUrl: String = "",
   )
 }
 

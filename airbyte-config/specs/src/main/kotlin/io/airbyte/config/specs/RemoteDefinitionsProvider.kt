@@ -55,6 +55,7 @@ open class RemoteDefinitionsProvider(
 
   private val remoteRegistryBaseUrl: URI
   private val airbyteEdition: AirbyteEdition
+  private val githubDocsBaseUrl: String
 
   private fun parsedRemoteRegistryBaseUrlOrDefault(remoteRegistryBaseUrl: String?): URI {
     try {
@@ -74,6 +75,8 @@ open class RemoteDefinitionsProvider(
 
     this.remoteRegistryBaseUrl = remoteRegistryBaseUrlUri
     this.airbyteEdition = airbyteConfig.edition
+    this.githubDocsBaseUrl = airbyteConnectorRegistryConfig.remote.githubDocsBaseUrl
+      .takeIf { it.isNotBlank() } ?: GITHUB_DOCS_BASE_URL
     this.okHttpClient =
       OkHttpClient
         .Builder()
@@ -269,7 +272,7 @@ open class RemoteDefinitionsProvider(
       return Optional.empty()
     }
 
-    val githubDocUrl = "$GITHUB_DOCS_BASE_URL/$relativePath.md"
+    val githubDocUrl = "$githubDocsBaseUrl/$relativePath.md"
     return fetchDocFromUrl(githubDocUrl)
   }
 

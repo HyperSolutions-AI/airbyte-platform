@@ -248,30 +248,30 @@ class PayloadKubeInputMapper(
     )
   }
 
-  // Return an image ref with the image registry prefix, if the image registry is configured.
+  // Return an image ref with the configured image registry prefix.
+  // If the image already has a registry hostname (e.g. ghcr.io/org/image), that hostname is
+  // replaced by the configured registry so that all pulls go through the internal mirror.
+  // If no registry is configured the image ref is returned unchanged.
   private fun String.withImageRegistry(): String {
-    if (airbyteWorkerConfig.job.kubernetes.connectorImageRegistry
-        .isEmpty()
-    ) {
+    val registry = airbyteWorkerConfig.job.kubernetes.connectorImageRegistry.trimEnd('/')
+    if (registry.isEmpty()) {
       return this
     }
-    // Custom connectors may contain a fully-qualified image registry name, e.g. my.registry.com/my/image.
-    // In this case, we don't want to add an additional image registry prefix.
-    //
-    // In order to detect whether the connector already has an image registry,
-    // we follow this code: https://github.com/distribution/distribution/blob/2461543d988979529609e8cb6fca9ca190dc48da/reference/normalize.go#L64
-    // If the image contains a slash and the string before the slash contains a "." or a ":" or is "localhost"
+
+    // Detect an existing registry hostname using the same heuristic as the distribution reference
+    // parser: the segment before the first '/' is a registry if it contains '.', ':', or equals "localhost".
+    // https://github.com/distribution/distribution/blob/2461543d988979529609e8cb6fca9ca190dc48da/reference/normalize.go#L64
     val i = this.indexOfFirst { it == '/' }
     if (i != -1) {
       val before = this.slice(0..i - 1)
       if (before.contains('.') || before.contains(':') || before == "localhost") {
-        return this
+        // Strip the original registry host and replace with the configured internal one.
+        val withoutRegistry = this.substring(i + 1)
+        return "$registry/$withoutRegistry"
       }
     }
 
-    // Ensure there's a trailing slash between the image registry and the image ref
-    // by stripping the slash (no-op if it doesn't exit) and adding it back.
-    return "${airbyteWorkerConfig.job.kubernetes.connectorImageRegistry.trimEnd('/')}/$this"
+    return "$registry/$this"
   }
 }
 

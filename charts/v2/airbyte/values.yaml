@@ -250,6 +250,8 @@ global:
 
   connectorRegistry:
     seedProvider: remote
+    dockerHubBaseUrl: "https://hub.docker.com"
+    githubDocsBaseUrl: ""
 
   connectorRollout:
     expirationSeconds:

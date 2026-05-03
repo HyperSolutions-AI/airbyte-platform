@@ -315,6 +315,14 @@ connector:
       key: enterpriseSourceStubsUrl
       defaultValue: https://connectors.airbyte.com/files/resources/connector_stubs/v1/connector_stubs.json
 
+    - env: DOCKER_HUB_BASE_URL
+      key: dockerHubBaseUrl
+      defaultValue: https://hub.docker.com
+
+    - env: GITHUB_DOCS_BASE_URL
+      key: githubDocsBaseUrl
+      defaultValue: ""
+
 connectorRollout:
   keyBasePath: global.connectorRollout
   config:

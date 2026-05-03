@@ -8,6 +8,7 @@ import io.airbyte.commons.constants.AirbyteCatalogConstants
 import io.airbyte.commons.json.Jsons
 import io.airbyte.commons.version.Version
 import io.airbyte.data.repositories.entities.DeclarativeManifestImageVersion
+import io.airbyte.micronaut.runtime.AirbyteConnectorRegistryConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Named
 import jakarta.inject.Singleton
@@ -21,9 +22,9 @@ private val log = KotlinLogging.logger {}
 @Named("remoteDeclarativeManifestImageVersionsProvider")
 class RemoteDeclarativeManifestImageVersionsProvider(
   @Named("dockerHubOkHttpClient") val okHttpClient: OkHttpClient,
+  airbyteConnectorRegistryConfig: AirbyteConnectorRegistryConfig,
 ) : DeclarativeManifestImageVersionsProvider {
-  companion object {
-  }
+  private val dockerHubBaseUrl: String = airbyteConnectorRegistryConfig.dockerHub.baseUrl.trimEnd('/')
 
   override fun getLatestDeclarativeManifestImageVersions(): List<DeclarativeManifestImageVersion> {
     val repository = AirbyteCatalogConstants.AIRBYTE_SOURCE_DECLARATIVE_MANIFEST_IMAGE
@@ -52,8 +53,8 @@ class RemoteDeclarativeManifestImageVersionsProvider(
   ): Map<String, String> {
     val tagsAndShas = mutableMapOf<String, String>()
 
-    // 100 is max allowed page size for DockerHub
-    var nextUrl: String? = "https://hub.docker.com/v2/repositories/$repository/tags?page_size=100"
+    // 100 is max allowed page size for the Docker Hub-compatible registry API
+    var nextUrl: String? = "$dockerHubBaseUrl/v2/repositories/$repository/tags?page_size=100"
 
     log.info { "Fetching image tags and SHAs for $repository..." }
     while (nextUrl != null) {

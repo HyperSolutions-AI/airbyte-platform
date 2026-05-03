@@ -11,6 +11,7 @@ import io.airbyte.commons.constants.AirbyteCatalogConstants
 import io.airbyte.commons.json.Jsons
 import io.airbyte.config.AirbyteCompatibleConnectorVersionsMatrix
 import io.airbyte.config.ConnectorInfo
+import io.airbyte.micronaut.runtime.AirbytePlatformCompatibilityConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.cache.annotation.CacheConfig
 import io.micronaut.cache.annotation.Cacheable
@@ -33,13 +34,21 @@ private val logger = KotlinLogging.logger {}
 @Requires(property = "airbyte.edition", pattern = "(?i)^community|enterprise$")
 open class AirbyteCompatibleConnectorVersionsProvider(
   @Named("platformCompatibilityClient") val okHttpClient: OkHttpClient,
+  platformCompatibilityConfig: AirbytePlatformCompatibilityConfig,
 ) {
+  private val remoteUrl: URL = run {
+    val base = platformCompatibilityConfig.remote.baseUrl
+      .takeIf { it.isNotBlank() }
+      ?: AirbyteCatalogConstants.REMOTE_REGISTRY_BASE_URL
+    URI("${base.trimEnd('/')}/${PLATFORM_COMPATIBILITY_PATH}").toURL()
+  }
+
   @Cacheable
   open fun getCompatibleConnectorsMatrix(): Map<String, ConnectorInfo> {
     val request: Request =
       Request
         .Builder()
-        .url(REMOTE_URL)
+        .url(remoteUrl)
         .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON)
         .build()
 
@@ -65,6 +74,8 @@ open class AirbyteCompatibleConnectorVersionsProvider(
   }
 
   companion object {
+    internal const val PLATFORM_COMPATIBILITY_PATH = "platform/v0/platform-compatibility.json"
+
     fun AirbyteCompatibleConnectorVersionsMatrix.convertToMap(): Map<String, ConnectorInfo> =
       this.compatibleConnectors.associateBy { connectorInfo -> connectorInfo.connectorDefinitionId.toString() }
 
@@ -76,7 +87,5 @@ open class AirbyteCompatibleConnectorVersionsProvider(
           .withMaxRetries(5)
           .build(),
       )
-
-    val REMOTE_URL: URL = URI("${AirbyteCatalogConstants.REMOTE_REGISTRY_BASE_URL}platform/v0/platform-compatibility.json").toURL()
   }
 }

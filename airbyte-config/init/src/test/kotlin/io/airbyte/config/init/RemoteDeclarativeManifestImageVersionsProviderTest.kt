@@ -4,14 +4,18 @@
 
 package io.airbyte.config.init
 import io.airbyte.data.repositories.entities.DeclarativeManifestImageVersion
+import io.airbyte.micronaut.runtime.AirbyteConnectorRegistryConfig
 import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.IOException
@@ -22,7 +26,7 @@ internal class RemoteDeclarativeManifestImageVersionsProviderTest {
 
   @BeforeEach
   fun setup() {
-    declarativeManifestImageVersionsProvider = RemoteDeclarativeManifestImageVersionsProvider(okHttpClient)
+    declarativeManifestImageVersionsProvider = RemoteDeclarativeManifestImageVersionsProvider(okHttpClient, AirbyteConnectorRegistryConfig())
   }
 
   @Test
@@ -180,6 +184,25 @@ internal class RemoteDeclarativeManifestImageVersionsProviderTest {
 
     verify(exactly = 1) { okHttpClient.newCall(any()).execute() }
     confirmVerified(okHttpClient)
+  }
+
+  @Test
+  fun `test custom docker hub base url is used`() {
+    val customDockerHubBaseUrl = "https://harbor.internal"
+    val config =
+      AirbyteConnectorRegistryConfig(
+        dockerHub = AirbyteConnectorRegistryConfig.AirbyteConnectorRegistryDockerHubConfig(baseUrl = customDockerHubBaseUrl),
+      )
+    val provider = RemoteDeclarativeManifestImageVersionsProvider(okHttpClient, config)
+    val capturedRequest = slot<Request>()
+
+    every { okHttpClient.newCall(capture(capturedRequest)).execute() } returns
+      successfulResponse("""{"count": 0, "next": null, "results": []}""")
+
+    provider.getLatestDeclarativeManifestImageVersions()
+
+    val requestedUrl = capturedRequest.captured.url.toString()
+    assertTrue(requestedUrl.startsWith(customDockerHubBaseUrl), "Expected request to internal registry but got: $requestedUrl")
   }
 
   fun successfulResponse(responseBody: String): okhttp3.Response =

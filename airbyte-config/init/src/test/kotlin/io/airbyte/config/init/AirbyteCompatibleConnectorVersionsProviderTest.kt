@@ -4,11 +4,15 @@
 
 package io.airbyte.config.init
 
+import io.airbyte.micronaut.runtime.AirbytePlatformCompatibilityConfig
 import io.micronaut.http.HttpStatus
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import okhttp3.Call
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -27,6 +31,7 @@ internal class AirbyteCompatibleConnectorVersionsProviderTest {
     val airbyteCompatibleConnectorVersionsProvider =
       AirbyteCompatibleConnectorVersionsProvider(
         okHttpClient = okHttpClient,
+        platformCompatibilityConfig = AirbytePlatformCompatibilityConfig(),
       )
 
     every { responseBody.string() } returns getMockJsonFileOutput()
@@ -80,6 +85,7 @@ internal class AirbyteCompatibleConnectorVersionsProviderTest {
     val airbyteCompatibleConnectorVersionsProvider =
       AirbyteCompatibleConnectorVersionsProvider(
         okHttpClient = okHttpClient,
+        platformCompatibilityConfig = AirbytePlatformCompatibilityConfig(),
       )
 
     every { responseBody.string() } returns ""
@@ -103,6 +109,7 @@ internal class AirbyteCompatibleConnectorVersionsProviderTest {
     val airbyteCompatibleConnectorVersionsProvider =
       AirbyteCompatibleConnectorVersionsProvider(
         okHttpClient = okHttpClient,
+        platformCompatibilityConfig = AirbytePlatformCompatibilityConfig(),
       )
 
     every { response.isSuccessful } returns true
@@ -124,6 +131,7 @@ internal class AirbyteCompatibleConnectorVersionsProviderTest {
     val airbyteCompatibleConnectorVersionsProvider =
       AirbyteCompatibleConnectorVersionsProvider(
         okHttpClient = okHttpClient,
+        platformCompatibilityConfig = AirbytePlatformCompatibilityConfig(),
       )
 
     every { call.execute() } throws IOException("test")
@@ -133,6 +141,34 @@ internal class AirbyteCompatibleConnectorVersionsProviderTest {
       val matrix = airbyteCompatibleConnectorVersionsProvider.getCompatibleConnectorsMatrix()
       assertEquals(0, matrix.size)
     }
+  }
+
+  @Test
+  internal fun testCustomBaseUrlIsUsed() {
+    val okHttpClient: OkHttpClient = mockk()
+    val call: Call = mockk()
+    val response: Response = mockk()
+    val responseBody: ResponseBody = mockk()
+    val customBaseUrl = "https://registry.internal"
+    val config =
+      AirbytePlatformCompatibilityConfig(
+        remote = AirbytePlatformCompatibilityConfig.AirbytePlatformCompatibilityRemoteConfig(baseUrl = customBaseUrl),
+      )
+    val provider = AirbyteCompatibleConnectorVersionsProvider(okHttpClient = okHttpClient, platformCompatibilityConfig = config)
+
+    val capturedRequest = slot<Request>()
+    every { responseBody.string() } returns getMockJsonFileOutput()
+    every { response.isSuccessful } returns true
+    every { response.body } returns responseBody
+    every { response.close() } returns Unit
+    every { call.execute() } returns response
+    every { okHttpClient.newCall(capture(capturedRequest)) } returns call
+
+    provider.getCompatibleConnectorsMatrix()
+
+    val requestedUrl = capturedRequest.captured.url.toString()
+    assertTrue(requestedUrl.startsWith(customBaseUrl), "Expected request to internal registry but got: $requestedUrl")
+    assertTrue(requestedUrl.contains(AirbyteCompatibleConnectorVersionsProvider.PLATFORM_COMPATIBILITY_PATH))
   }
 
   private fun getMockJsonFileOutput(): String =

@@ -4,23 +4,33 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - develop
 
 env:
   REGISTRY: registry.hyperlakehouse.com
   PROJECT: hyperlake-dev
-  REPO: hyperflow-ui
 
 jobs:
-  build-and-push:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Frontend — HyperFlow UI
+  # ─────────────────────────────────────────────────────────────────────────
+  build-frontend:
+    name: Build and push frontend
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract tag name
+      - name: Resolve image tag
         id: meta
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -42,7 +52,102 @@ jobs:
             REACT_APP_API_URL=https://airbyte-ui.poc.hyperlakehouse.com
             REACT_APP_KEYCLOAK_BASE_URL=https://airbyte-ui.poc.hyperlakehouse.com
           tags: |
-            ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.REPO }}:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.REPO }}:latest
+            ${{ env.REGISTRY }}/${{ env.PROJECT }}/hyperflow-ui:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT }}/hyperflow-ui:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Backend platform images — all six air-gap-modified services
+  # Built with Gradle's dockerBuildImage task (io.airbyte.gradle.docker)
+  # ─────────────────────────────────────────────────────────────────────────
+  build-platform:
+    name: Build and push platform images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: meta
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      # Each service: Gradle resolves the distTar, copies the Dockerfile and
+      # airbyte-app.tar into build/airbyte/docker/, then runs:
+      #   docker buildx build --output type=registry ...
+      # The -Pdocker.registry flag causes the plugin to push directly.
+
+      - name: Build and push bootloader
+        run: |
+          ./gradlew :oss:airbyte-bootloader:dockerBuildImage \
+            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
+            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+        env:
+          CI: "true"
+
+      - name: Build and push cron
+        run: |
+          ./gradlew :oss:airbyte-cron:dockerBuildImage \
+            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
+            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+        env:
+          CI: "true"
+
+      - name: Build and push server
+        run: |
+          ./gradlew :oss:airbyte-server:dockerBuildImage \
+            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
+            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+        env:
+          CI: "true"
+
+      - name: Build and push worker
+        run: |
+          ./gradlew :oss:airbyte-workers:dockerBuildImage \
+            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
+            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+        env:
+          CI: "true"
+
+      - name: Build and push workload-launcher
+        run: |
+          ./gradlew :oss:airbyte-workload-launcher:dockerBuildImage \
+            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
+            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+        env:
+          CI: "true"
+
+      - name: Build and push container-orchestrator
+        run: |
+          ./gradlew :oss:airbyte-container-orchestrator:dockerBuildImage \
+            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
+            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+        env:
+          CI: "true"

@@ -18,10 +18,8 @@ jobs:
   build-frontend:
     name: Build and push frontend
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Resolve image tag
         id: meta
@@ -32,18 +30,14 @@ jobs:
             echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Harbor
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/frontend/Dockerfile
@@ -58,96 +52,144 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ─────────────────────────────────────────────────────────────────────────
-  # Backend platform images — all six air-gap-modified services
-  # Built with Gradle's dockerBuildImage task (io.airbyte.gradle.docker)
+  # Each backend service gets its own job → own runner → own JVM.
+  # Shared Gradle build cache (type=gha) speeds up repeated dependency
+  # resolution across jobs.
   # ─────────────────────────────────────────────────────────────────────────
-  build-platform:
-    name: Build and push platform images
+  build-bootloader:
+    name: Push bootloader
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Resolve image tag
-        id: meta
+      - uses: actions/checkout@v4
+      - id: meta
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Harbor
-        uses: docker/login-action@v3
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
-
-      # Each service: Gradle resolves the distTar, copies the Dockerfile and
-      # airbyte-app.tar into build/airbyte/docker/, then runs:
-      #   docker buildx build --output type=registry ...
-      # The -Pdocker.registry flag causes the plugin to push directly.
-
-      - name: Build and push bootloader
-        run: |
-          ./gradlew :oss:airbyte-bootloader:dockerBuildImage \
-            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
-            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+      - name: Build and push
+        run: ./gradlew :oss:airbyte-bootloader:dockerBuildImage -Pdocker.tag=${{ steps.meta.outputs.tag }} -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
         env:
-          CI: "true"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
 
-      - name: Build and push cron
+  build-cron:
+    name: Push cron
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
         run: |
-          ./gradlew :oss:airbyte-cron:dockerBuildImage \
-            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
-            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - name: Build and push
+        run: ./gradlew :oss:airbyte-cron:dockerBuildImage -Pdocker.tag=${{ steps.meta.outputs.tag }} -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
         env:
-          CI: "true"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
 
-      - name: Build and push server
+  build-server:
+    name: Push server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
         run: |
-          ./gradlew :oss:airbyte-server:dockerBuildImage \
-            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
-            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - name: Build and push
+        run: ./gradlew :oss:airbyte-server:dockerBuildImage -Pdocker.tag=${{ steps.meta.outputs.tag }} -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
         env:
-          CI: "true"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
 
-      - name: Build and push worker
+  build-worker:
+    name: Push worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
         run: |
-          ./gradlew :oss:airbyte-workers:dockerBuildImage \
-            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
-            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - name: Build and push
+        run: ./gradlew :oss:airbyte-workers:dockerBuildImage -Pdocker.tag=${{ steps.meta.outputs.tag }} -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
         env:
-          CI: "true"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
 
-      - name: Build and push workload-launcher
+  build-workload-launcher:
+    name: Push workload-launcher
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
         run: |
-          ./gradlew :oss:airbyte-workload-launcher:dockerBuildImage \
-            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
-            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - name: Build and push
+        run: ./gradlew :oss:airbyte-workload-launcher:dockerBuildImage -Pdocker.tag=${{ steps.meta.outputs.tag }} -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
         env:
-          CI: "true"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
 
-      - name: Build and push container-orchestrator
+  build-container-orchestrator:
+    name: Push container-orchestrator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
         run: |
-          ./gradlew :oss:airbyte-container-orchestrator:dockerBuildImage \
-            -Pdocker.tag=${{ steps.meta.outputs.tag }} \
-            -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else echo "tag=dev-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+      - name: Build and push
+        run: ./gradlew :oss:airbyte-container-orchestrator:dockerBuildImage -Pdocker.tag=${{ steps.meta.outputs.tag }} -Pdocker.registry=${{ env.REGISTRY }}/${{ env.PROJECT }}
         env:
-          CI: "true"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"

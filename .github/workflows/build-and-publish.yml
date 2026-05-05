@@ -43,8 +43,8 @@ jobs:
           file: docker/frontend/Dockerfile
           push: true
           build-args: |
-            REACT_APP_API_URL=https://airbyte-ui.poc.hyperlakehouse.com
-            REACT_APP_KEYCLOAK_BASE_URL=https://airbyte-ui.poc.hyperlakehouse.com
+            REACT_APP_API_URL=https://hyperflow.hyperlake.sa
+            REACT_APP_KEYCLOAK_BASE_URL=https://hyperflow.hyperlake.sa
           tags: |
             ${{ env.REGISTRY }}/${{ env.PROJECT }}/hyperflow-ui:${{ steps.meta.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.PROJECT }}/hyperflow-ui:latest
